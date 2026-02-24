@@ -1,0 +1,933 @@
+{
+  "name": "AI Hedge Fund - Manual Input",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        2816
+      ],
+      "id": "436c1d47-e94f-4a5e-978c-a4e4105d2d7c",
+      "name": "Start Analysis"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ticker-input",
+              "name": "ticker",
+              "type": "string",
+              "value": "NVDA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        144,
+        2816
+      ],
+      "id": "77642009-604e-4467-a3bb-eab60a2dbd27",
+      "name": "Set Stock Ticker"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.polygon.io/v2/aggs/ticker/{{ $json.ticker }}/range/1/day/{{DateTime.now().minus({days: 30}).toFormat('yyyy-MM-dd')}}/{{DateTime.now().toFormat('yyyy-MM-dd')}}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "YOUR_POLYGON_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        2592
+      ],
+      "id": "46a85e18-a2b6-4b72-8de4-a7967d7aaece",
+      "name": "Daily Market Data"
+    },
+    {
+      "parameters": {
+        "url": "https://api.polygon.io/v3/reference/tickers",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ticker",
+              "value": "={{ $json.ticker }}"
+            },
+            {
+              "name": "apikey",
+              "value": "YOUR_POLYGON_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        2768
+      ],
+      "id": "119a3813-ec16-44ed-a123-5382b6b41ac2",
+      "name": "Company Fundamentals"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        688,
+        2784
+      ],
+      "id": "682a5eb1-ca3e-43ce-927b-44502063c6cf",
+      "name": "Data Aggregator"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        848,
+        2816
+      ],
+      "id": "a8ad9734-5293-4c82-a2f1-e20d8f4308ce",
+      "name": "Market Intelligence Hub"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst ticker = items[0]?.json?.ticker || $('Set Stock Ticker').first().json.ticker || 'UNKNOWN';\n\nlet analysisText = `INVESTMENT ANALYSIS FOR ${ticker}\\n\\n`;\nanalysisText += `RAW API DATA:\\n`;\n\nfor (let i = 0; i < items.length; i++) {\n  analysisText += `\\nData Source ${i + 1}:\\n`;\n  analysisText += JSON.stringify(items[i].json, null, 2);\n  analysisText += `\\n${'='.repeat(50)}\\n`;\n}\n\nreturn [{ \n  json: { \n    ticker: ticker,\n    formatted_analysis: analysisText,\n    debug: `Found ${items.length} items`\n  } \n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        2816
+      ],
+      "id": "756690b2-5318-4836-9d5a-c5246ed2ea98",
+      "name": "Format Data"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.formatted_analysis }}\n\n# Warren Buffett Investment Agent\n\nYou are Warren Buffett analyzing this investment opportunity independently.\n\nFocus on:\n- Business quality and competitive moats\n- Management effectiveness\n- Intrinsic value vs current price\n- Long-term growth prospects\n- Margin of safety\n\n## Output Format\n**BUFFETT RECOMMENDATION: [BUY/HOLD/SELL]**\n**CONVICTION LEVEL: [1-10]**\n**TARGET ALLOCATION: [0-25%]**\n**TIME HORIZON: [5-10+ years]**\n\n**INVESTMENT THESIS:**\n- Economic moat analysis\n- Management assessment\n- Valuation summary\n- Risk factors\n\n**BUFFETT WISDOM:**\n\"[Include relevant quote]\"",
+        "options": {
+          "systemMessage": "You are Warren Buffett. Focus on long-term value investing with emphasis on business quality, competitive moats, and intrinsic value calculations."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        2832
+      ],
+      "id": "de2afaa1-c8f6-4916-992d-eb8678de1498",
+      "name": "Warren Buffett"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nlet summary = \"INVESTMENT COMMITTEE RECOMMENDATIONS:\\n\\n\";\n\nconst agentNames = ['Steve Cohen', 'Charlie Munger', 'Warren Buffett', 'Bill Ackman', 'Ray Dalio'];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  summary += `${agentNames[i] || 'AGENT ' + (i + 1)} RECOMMENDATION:\\n`;\n  summary += JSON.stringify(item.json, null, 2);\n  summary += \"\\n\" + \"=\".repeat(50) + \"\\n\\n\";\n}\n\nreturn [{ \n  json: { \n    committee_summary: summary,\n    agent_count: items.length\n  } \n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2176,
+        2864
+      ],
+      "id": "29b3f358-78e8-4bd3-9c98-11ab28cbcb2c",
+      "name": "Aggregate Committee"
+    },
+    {
+      "parameters": {
+        "url": "https://api.polygon.io/vX/reference/financials",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ticker",
+              "value": "={{ $json.ticker }}"
+            },
+            {
+              "name": "apikey",
+              "value": "YOUR_POLYGON_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        2960
+      ],
+      "id": "14007b1f-d133-45be-9773-139b3a10f637",
+      "name": "Financial Statements1"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.ticker }} AND (earnings OR financial OR investment)"
+            },
+            {
+              "name": "apiKey",
+              "value": "YOUR_NEWS_API_KEY"
+            },
+            {
+              "name": "from",
+              "value": "={{DateTime.now().minus({days: 7}).toFormat('yyyy-MM-dd')}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        336,
+        3136
+      ],
+      "id": "7d1c3b90-77e4-41b7-ba70-63f9b128716e",
+      "name": "News & Sentiment1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.formatted_analysis }}\n\n# Charlie Munger Investment Agent\n\nYou are Charlie Munger analyzing this investment independently.\n\nFocus on:\n- Mental models and multidisciplinary thinking\n- Avoiding stupid mistakes\n- Behavioral psychology and cognitive biases\n- Circle of competence\n\n## Output Format\n**MUNGER ANALYSIS: [OPPORTUNITY/CAUTION/AVOID]**\n**RISK RATING: [1-10]**\n**MENTAL MODEL SCORE: [1-10]**\n**CIRCLE OF COMPETENCE: [IN/OUT/BORDERLINE]**\n\n**KEY MENTAL MODELS APPLIED:**\n- Primary frameworks\n- Behavioral biases observed\n\n**CONTRARIAN INSIGHTS:**\n- What the market is missing\n\n**MUNGER WISDOM:**\n\"[Relevant quote]\"",
+        "options": {
+          "systemMessage": "You are Charlie Munger, applying multidisciplinary mental models and contrarian analysis to investment decisions."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1616,
+        2560
+      ],
+      "id": "aad4a868-5df5-415c-91c5-1130b9f8bfea",
+      "name": "Charlie Munger1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.formatted_analysis }}\n\n# Bill Ackman Investment Agent\n\nYou are Bill Ackman analyzing this investment independently.\n\nFocus on:\n- Activist investing opportunities\n- High-conviction positions\n- Catalyst-driven opportunities\n- Corporate governance improvements\n\n## Output Format\n**ACKMAN POSITION: [LONG/SHORT/ACTIVIST LONG]**\n**CONVICTION LEVEL: [1-10]**\n**CATALYST TIMELINE: [6-36 months]**\n**TARGET POSITION SIZE: [5-20%]**\n\n**ACTIVIST INVESTMENT THESIS:**\n- Corporate governance issues\n- Value creation opportunities\n- Catalysts and timing\n\n**ACKMAN INSIGHT:**\n\"[Relevant insight]\"",
+        "options": {
+          "systemMessage": "You are Bill Ackman, focusing on activist investing and high-conviction positions with catalyst-driven value creation."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        3120
+      ],
+      "id": "f54a92bd-12bc-406e-87c0-54cca36cf952",
+      "name": "Bill Ackman1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.formatted_analysis }}\n\n# Steve Cohen Investment Agent\n\nYou are Steve Cohen analyzing this investment independently.\n\nFocus on:\n- Multi-strategy trading\n- Information edge\n- Risk management\n- Entry/exit points\n\n## Output Format\n**COHEN TRADE: [LONG/SHORT/PASS]**\n**CONVICTION LEVEL: [1-10]**\n**POSITION SIZE: [1-10%]**\n**TIME HORIZON: [Days/Weeks/Months]**\n**ENTRY PRICE: [$X]**\n**TARGET: [$X]**\n**STOP LOSS: [$X]**\n\n**COHEN INSIGHT:**\n\"[Trading wisdom]\"",
+        "options": {
+          "systemMessage": "You are Steve Cohen, focusing on multi-strategy investing with emphasis on information edge and sophisticated risk management."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1600,
+        2304
+      ],
+      "id": "b616fa9e-5011-4e49-861e-e495801658ff",
+      "name": "Steve Cohen1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.formatted_analysis }}\n\n# Ray Dalio Investment Agent\n\nYou are Ray Dalio analyzing this investment independently.\n\nFocus on:\n- Macroeconomic analysis\n- Economic cycles\n- Risk parity\n- Portfolio construction\n\n## Output Format\n**DALIO STRATEGY: [ALLOCATE/REDUCE/HEDGE/AVOID]**\n**MACRO ENVIRONMENT SCORE: [1-10]**\n**DIVERSIFICATION VALUE: [HIGH/MEDIUM/LOW]**\n**ECONOMIC SEASON: [GROWTH/RECESSION/REFLATION/STAGFLATION]**\n\n**MACROECONOMIC ANALYSIS:**\n- Economic cycle position\n- Portfolio construction\n\n**BRIDGEWATER PRINCIPLES:**\n\"[Relevant principle]\"",
+        "options": {
+          "systemMessage": "You are Ray Dalio, focusing on macroeconomic analysis, systematic investing, and risk parity approaches."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1632,
+        3392
+      ],
+      "id": "6aaae69a-2569-432a-821f-08947e8dcfa5",
+      "name": "Ray Dalio1"
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1984,
+        2816
+      ],
+      "id": "1b310c16-1bcb-475a-ae6a-3fadbdc82c37",
+      "name": "Investment Committee1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.committee_summary }}\n\n# Chief Risk Officer & Portfolio Manager\n\nSynthesize the 5 independent investment recommendations above into a final portfolio decision.\n\n## Output Format\n**PORTFOLIO DECISION: [IMPLEMENT/MODIFY/MONITOR/REJECT]**\n**FINAL POSITION SIZE: X.X% of portfolio**\n**RISK RATING: [1-10 scale]**\n\n**COMMITTEE CONSENSUS ANALYSIS:**\n- Summary of each agent's recommendation\n- Average conviction level\n- Primary agreement factors\n- Key disagreement points\n\n**IMPLEMENTATION PLAN:**\n- Entry strategy and timing\n- Stop-loss level\n- Profit targets\n- Risk management\n\n**RISK OFFICER SUMMARY:**\n\"[Concise summary of final decision rationale]\"",
+        "options": {
+          "systemMessage": "You are the Chief Risk Officer synthesizing input from 5 world-class investors into optimal portfolio decisions."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        2432,
+        2864
+      ],
+      "id": "b8b82a09-a586-4c58-a196-adb445d89917",
+      "name": "Risk Management1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        2432
+      ],
+      "id": "f8a1623b-d974-45a0-8d6d-2aca6630bd9f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        2704
+      ],
+      "id": "7441934e-ca7e-4301-a6aa-bfad55f367e1",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        2976
+      ],
+      "id": "108c0f22-3bcd-40f4-b936-04ba4351f0b4",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        3264
+      ],
+      "id": "62da5f32-cf97-4a86-8820-de7bc2acdced",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        3536
+      ],
+      "id": "becd46a1-9459-4d42-b933-868859296a44",
+      "name": "Google Gemini Chat Model4",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@gmail.com",
+        "subject": "=Personalised Investment Analysis - {{ $('Set Stock Ticker').item.json.ticker }}",
+        "message": "={{ $json.htmlEmail }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3040,
+        2864
+      ],
+      "id": "6589838d-5479-44de-bc61-d5eaa58eedc5",
+      "name": "Send a message",
+      "webhookId": "f820e141-084b-41a6-86be-fe9275eb8f3f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        2304
+      ],
+      "id": "715a9307-f140-4d19-a24b-9e6a5a8ec41a",
+      "name": "Wait",
+      "webhookId": "64ce4d55-5509-4b62-90f9-015f1efa3437"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        2560
+      ],
+      "id": "b077ef48-7d3f-4d79-8297-baf84019b262",
+      "name": "Wait5",
+      "webhookId": "9d19e78c-c82d-4bf0-af25-e4828dc9fead"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        2832
+      ],
+      "id": "db386239-b260-4796-955a-e53eca6a1312",
+      "name": "Wait6",
+      "webhookId": "a77eb4b6-c641-4227-8029-5444335371db"
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        3120
+      ],
+      "id": "f90276e0-78eb-4d4c-8dc6-afcafd2da521",
+      "name": "Wait7",
+      "webhookId": "b629f7e4-3aef-4849-bb3f-f7679f28d0cb"
+    },
+    {
+      "parameters": {
+        "amount": 25
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1456,
+        3392
+      ],
+      "id": "b568c0ee-a3a7-4b36-8274-7c0fd8dfb0f9",
+      "name": "Wait8",
+      "webhookId": "3d41718f-e755-4ba0-9e2c-f39fd54c5021"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────\n// n8n CODE NODE — \"Format HTML Email\"\n// Place this between Risk Management1 and Send a message\n// ─────────────────────────────────────────────\n\nconst rawOutput = $input.first().json.output || '';\nconst ticker = $('Set Stock Ticker').first().json.ticker || 'UNKNOWN';\nconst now = new Date();\nconst dateStr = now.toISOString().replace('T', ' · ').slice(0, 19) + ' UTC';\n\n// ── Helper: extract value from output text ──\nfunction extract(pattern, fallback) {\n  const m = rawOutput.match(pattern);\n  return m ? m[1].trim() : fallback;\n}\n\n// ── Parse the Risk Officer output ──\nconst decision     = extract(/PORTFOLIO DECISION:\\s*\\[?([^\\]\\n*]+)\\]?/i, 'UNKNOWN');\nconst positionSize = extract(/FINAL POSITION SIZE:\\s*([\\d.]+%?[^*\\n]*)/i, 'N/A');\nconst riskRating   = extract(/RISK RATING:\\s*\\[?(\\d+)/i, '?');\nconst riskSummary  = extract(/RISK OFFICER SUMMARY[:\\s\"]+([^\"*\\n]{30,})/i, rawOutput.slice(0, 300));\n\n// ── Parse each committee member from the summary ──\n// The committee_summary has each agent's raw output. We pull key fields.\nconst committeeSummary = $('Aggregate Committee').first().json.committee_summary || '';\n\nfunction parseAgent(name, abbr, avClass, defaultPosition, defaultConviction, defaultAlloc, badgeClass) {\n  // Try to find conviction level\n  const convMatch = committeeSummary.match(new RegExp(name + '[\\\\s\\\\S]{0,800}?CONVICTION[^:]*:\\\\s*\\\\[?(\\\\d+)', 'i'));\n  const conviction = convMatch ? parseInt(convMatch[1]) : defaultConviction;\n  const pct = Math.round((conviction / 10) * 100);\n\n  // Try to find recommendation/position\n  const posPatterns = [\n    new RegExp(name + '[\\\\s\\\\S]{0,500}?(?:TRADE|POSITION|RECOMMENDATION|ANALYSIS|STRATEGY):\\\\s*\\\\[?([A-Z /]+)', 'i'),\n  ];\n  let position = defaultPosition;\n  for (const p of posPatterns) {\n    const m = committeeSummary.match(p);\n    if (m) { position = m[1].trim().slice(0, 25); break; }\n  }\n\n  // Try to find allocation\n  const allocMatch = committeeSummary.match(new RegExp(name + '[\\\\s\\\\S]{0,600}?(?:ALLOCATION|POSITION SIZE|TARGET ALLOCATION):\\\\s*\\\\[?([0-9%\\\\-]+[^\\\\]*\\\\n]{0,10})', 'i'));\n  const alloc = allocMatch ? allocMatch[1].trim().slice(0, 10) : defaultAlloc;\n\n  return { name, abbr, avClass, position, conviction, pct, alloc, badgeClass };\n}\n\nconst agents = [\n  parseAgent('Steve Cohen',   'SC', 'av-blue',   'SHORT',         8,  8,  'Short',   'badge-red'),\n  parseAgent('Charlie Munger','CM', 'av-green',  'AVOID',         9,  9,  '0%',      'badge-gray'),\n  parseAgent('Warren Buffett','WB', 'av-yellow', 'SELL',          9,  9,  '0%',      'badge-red'),\n  parseAgent('Bill Ackman',   'BA', 'av-red',    'ACTIVIST LONG', 9,  9,  '10–15%',  'badge-purple'),\n  parseAgent('Ray Dalio',     'RD', 'av-teal',   'AVOID',         9,  9,  '0%',      'badge-gray'),\n];\n\nconst avgConviction = (agents.reduce((s, a) => s + a.conviction, 0) / agents.length).toFixed(1);\n\n// ── Decide verdict color ──\nconst decisionUpper = decision.toUpperCase();\nlet verdictClass = 'badge-gray', dotClass = '', verdictColor = '#8888a8';\nif (decisionUpper.includes('REJECT') || decisionUpper.includes('SELL')) {\n  verdictClass = 'badge-red'; dotClass = ''; verdictColor = '#ef4444';\n} else if (decisionUpper.includes('IMPLEMENT') || decisionUpper.includes('BUY')) {\n  verdictClass = 'badge-green'; dotClass = 'green'; verdictColor = '#22c55e';\n} else if (decisionUpper.includes('MODIFY') || decisionUpper.includes('MONITOR')) {\n  verdictClass = 'badge-orange'; dotClass = 'orange'; verdictColor = '#f97316';\n}\n\n// Risk gauge: dasharray for circle r=32 is ~201. Fill proportionally.\nconst riskNum = parseInt(riskRating) || 5;\nconst circumference = 201;\nconst dashOffset = circumference - (circumference * riskNum / 10);\n\n// ── Build committee rows ──\nfunction badgeColors(cls) {\n  const map = {\n    'badge-red':    'background:#2a0808;color:#ef4444;border:1px solid #7f1d1d',\n    'badge-gray':   'background:#181820;color:#8888a8;border:1px solid #2a2a40',\n    'badge-green':  'background:#001a08;color:#22c55e;border:1px solid #14532d',\n    'badge-purple': 'background:#1a0a2a;color:#a78bfa;border:1px solid #4c1d95',\n    'badge-orange': 'background:#2a1200;color:#f97316;border:1px solid #7c2d12',\n  };\n  return map[cls] || map['badge-gray'];\n}\nfunction avColors(cls) {\n  const map = {\n    'av-blue':   'background:#1e1e4a;color:#818cf8',\n    'av-green':  'background:#0f2a1a;color:#4ade80',\n    'av-yellow': 'background:#2a2000;color:#facc15',\n    'av-red':    'background:#2a0f0f;color:#f87171',\n    'av-teal':   'background:#0f2a28;color:#2dd4bf',\n  };\n  return map[cls] || '';\n}\nfunction allocColor(cls) {\n  if (cls === 'badge-red') return '#ef4444';\n  if (cls === 'badge-green') return '#22c55e';\n  if (cls === 'badge-purple') return '#a78bfa';\n  if (cls === 'badge-orange') return '#f97316';\n  return '#8888a8';\n}\n\nconst rows = agents.map(a => `\n  <tr>\n    <td style=\"padding:12px;border-bottom:1px solid #111125;vertical-align:middle\">\n      <div style=\"display:flex;align-items:center;gap:10px\">\n        <div style=\"width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;\n          font-family:'Syne',sans-serif;font-size:11px;font-weight:800;flex-shrink:0;${avColors(a.avClass)}\">${a.abbr}</div>\n        <div>\n          <div style=\"font-weight:500;color:#d0d0e8;font-size:13px\">${a.name}</div>\n        </div>\n      </div>\n    </td>\n    <td style=\"padding:12px;border-bottom:1px solid #111125;vertical-align:middle\">\n      <span style=\"display:inline-block;padding:3px 10px;border-radius:4px;\n        font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:0.05em;\n        ${badgeColors(a.badgeClass)}\">${a.position}</span>\n    </td>\n    <td style=\"padding:12px;border-bottom:1px solid #111125;vertical-align:middle\">\n      <div style=\"display:flex;align-items:center;gap:6px\">\n        <div style=\"width:60px;height:4px;background:#1a1a2e;border-radius:2px;overflow:hidden\">\n          <div style=\"width:${a.pct}%;height:100%;border-radius:2px;background:linear-gradient(90deg,#ef4444,#f87171)\"></div>\n        </div>\n        <span style=\"font-family:'DM Mono',monospace;font-size:11px;color:#6666aa\">${a.conviction}/10</span>\n      </div>\n    </td>\n    <td style=\"padding:12px;border-bottom:1px solid #111125;vertical-align:middle\">\n      <span style=\"font-family:'DM Mono',monospace;font-size:12px;color:${allocColor(a.badgeClass)}\">${a.alloc}</span>\n    </td>\n  </tr>`).join('');\n\n// ── Full narrative from output (strip markdown-ish formatting) ──\nconst cleanOutput = rawOutput\n  .replace(/\\*\\*/g, '')\n  .replace(/#{1,3} /g, '')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\n\n// Split into paragraphs for the detail section\nconst paragraphs = cleanOutput.split('\\n\\n').slice(0, 12).map(p =>\n  `<p style=\"margin:0 0 10px 0;font-size:12px;color:#7070a0;line-height:1.7;font-family:'DM Sans',sans-serif\">${p.replace(/\\n/g, '<br>')}</p>`\n).join('');\n\n// ── Build full HTML ──\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">\n<link href=\"https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap\" rel=\"stylesheet\">\n</head>\n<body style=\"margin:0;padding:32px 16px;background:#0a0a0f;font-family:'DM Sans',sans-serif;color:#e8e8f0\">\n<div style=\"max-width:680px;margin:0 auto\">\n\n  <!-- HEADER -->\n  <div style=\"background:linear-gradient(135deg,#0d0d1a,#12121f);border:1px solid #1e1e35;border-radius:16px 16px 0 0;padding:36px 40px 28px;position:relative;overflow:hidden\">\n    <div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:20px\">\n      <div style=\"font-family:'Syne',sans-serif;font-size:13px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:#6366f1\">⬡ AI Hedge Fund</div>\n      <div style=\"font-family:'DM Mono',monospace;font-size:11px;color:#555570;background:#111125;padding:5px 10px;border-radius:20px;border:1px solid #1e1e35\">${dateStr}</div>\n    </div>\n    <div style=\"font-family:'Syne',sans-serif;font-size:48px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1;margin-bottom:8px\">$<span style=\"color:#6366f1\">${ticker}</span></div>\n    <div style=\"font-family:'DM Mono',monospace;font-size:12px;color:#55556a;letter-spacing:0.05em;text-transform:uppercase\">Investment Committee Report</div>\n  </div>\n\n  <!-- VERDICT -->\n  <div style=\"background:#0d0d1a;border:1px solid #1e1e35;border-top:none;padding:24px 40px;display:flex;align-items:center;gap:24px;flex-wrap:wrap\">\n    <div style=\"display:inline-flex;align-items:center;gap:8px;background:#1a0505;border:1px solid #7f1d1d;border-radius:8px;padding:10px 18px\">\n      <div style=\"width:8px;height:8px;border-radius:50%;background:${verdictColor};box-shadow:0 0 8px ${verdictColor};flex-shrink:0\"></div>\n      <div style=\"font-family:'Syne',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${verdictColor}\">${decision}</div>\n    </div>\n    <div style=\"display:flex;gap:20px;flex-wrap:wrap\">\n      <div style=\"text-align:center\">\n        <div style=\"font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:${verdictColor};line-height:1\">${positionSize}</div>\n        <div style=\"font-family:'DM Mono',monospace;font-size:10px;color:#555570;letter-spacing:0.1em;text-transform:uppercase;margin-top:4px\">Position Size</div>\n      </div>\n      <div style=\"text-align:center\">\n        <div style=\"font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#f97316;line-height:1\">${riskRating}/10</div>\n        <div style=\"font-family:'DM Mono',monospace;font-size:10px;color:#555570;letter-spacing:0.1em;text-transform:uppercase;margin-top:4px\">Risk Rating</div>\n      </div>\n      <div style=\"text-align:center\">\n        <div style=\"font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;line-height:1\">${avgConviction}</div>\n        <div style=\"font-family:'DM Mono',monospace;font-size:10px;color:#555570;letter-spacing:0.1em;text-transform:uppercase;margin-top:4px\">Avg Conviction</div>\n      </div>\n    </div>\n  </div>\n\n  <!-- COMMITTEE TABLE -->\n  <div style=\"background:#0d0d1a;border:1px solid #1e1e35;border-top:none;padding:28px 40px\">\n    <div style=\"font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#6366f1;margin-bottom:16px\">// Investment Committee</div>\n    <table style=\"width:100%;border-collapse:collapse\">\n      <thead>\n        <tr>\n          <th style=\"font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#444460;text-align:left;padding:0 12px 10px;border-bottom:1px solid #1a1a2e\">Analyst</th>\n          <th style=\"font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#444460;text-align:left;padding:0 12px 10px;border-bottom:1px solid #1a1a2e\">Position</th>\n          <th style=\"font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#444460;text-align:left;padding:0 12px 10px;border-bottom:1px solid #1a1a2e\">Conviction</th>\n          <th style=\"font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#444460;text-align:left;padding:0 12px 10px;border-bottom:1px solid #1a1a2e\">Allocation</th>\n        </tr>\n      </thead>\n      <tbody>${rows}</tbody>\n    </table>\n  </div>\n\n  <!-- FULL ANALYSIS -->\n  <div style=\"background:#0d0d1a;border:1px solid #1e1e35;border-top:1px solid #111125;padding:28px 40px\">\n    <div style=\"font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#6366f1;margin-bottom:16px\">// Full Risk Officer Analysis</div>\n    <div style=\"background:#080812;border:1px solid #161628;border-radius:8px;padding:20px\">\n      ${paragraphs}\n    </div>\n  </div>\n\n  <!-- FOOTER -->\n  <div style=\"background:#080810;border:1px solid #1e1e35;border-top:1px solid #111125;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center\">\n    <div style=\"font-family:'DM Mono',monospace;font-size:10px;color:#333345;line-height:1.7;letter-spacing:0.03em\">\n      <strong style=\"color:#444460\">⚠ DISCLAIMER</strong><br>\n      AI-generated analysis for educational purposes only. Not financial advice.<br>Consult a qualified financial advisor before making investment decisions.\n    </div>\n    <div style=\"margin-top:12px;font-family:'DM Mono',monospace;font-size:10px;color:#2a2a45\">\n      Generated by <span style=\"color:#6366f1\">AI Hedge Fund Analysis System</span> · Powered by n8n + Gemini\n    </div>\n  </div>\n\n</div>\n</body>\n</html>`;\n\nreturn [{ json: { htmlEmail: html, ticker, decision, riskRating, positionSize } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        2864
+      ],
+      "id": "7c0ac745-b7dd-48de-9951-9eaf515aab6c",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2432,
+        3008
+      ],
+      "id": "42eee5a2-dab3-40bc-a7cb-3363d17670e3",
+      "name": "Google Gemini Chat Model5",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "eFSRqFTJR0DCBH28",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start Analysis": {
+      "main": [
+        [
+          {
+            "node": "Set Stock Ticker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Stock Ticker": {
+      "main": [
+        [
+          {
+            "node": "Daily Market Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Company Fundamentals",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Financial Statements1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "News & Sentiment1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Market Data": {
+      "main": [
+        [
+          {
+            "node": "Data Aggregator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company Fundamentals": {
+      "main": [
+        [
+          {
+            "node": "Data Aggregator",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Data Aggregator": {
+      "main": [
+        [
+          {
+            "node": "Market Intelligence Hub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Market Intelligence Hub": {
+      "main": [
+        [
+          {
+            "node": "Format Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait7",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Warren Buffett": {
+      "main": [
+        [
+          {
+            "node": "Investment Committee1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Aggregate Committee": {
+      "main": [
+        [
+          {
+            "node": "Risk Management1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Financial Statements1": {
+      "main": [
+        [
+          {
+            "node": "Data Aggregator",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "News & Sentiment1": {
+      "main": [
+        [
+          {
+            "node": "Data Aggregator",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Charlie Munger1": {
+      "main": [
+        [
+          {
+            "node": "Investment Committee1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Bill Ackman1": {
+      "main": [
+        [
+          {
+            "node": "Investment Committee1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Steve Cohen1": {
+      "main": [
+        [
+          {
+            "node": "Investment Committee1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ray Dalio1": {
+      "main": [
+        [
+          {
+            "node": "Investment Committee1",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Investment Committee1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Committee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Management1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Steve Cohen1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Charlie Munger1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Warren Buffett",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Bill Ackman1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ray Dalio1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Steve Cohen1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait5": {
+      "main": [
+        [
+          {
+            "node": "Charlie Munger1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait6": {
+      "main": [
+        [
+          {
+            "node": "Warren Buffett",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait7": {
+      "main": [
+        [
+          {
+            "node": "Bill Ackman1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait8": {
+      "main": [
+        [
+          {
+            "node": "Ray Dalio1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Risk Management1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "b8be907c-4cf0-48c0-8bfa-43377d818521",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cf8dc5f9f36f6d1c463b9184942186b47252bb62034f4b03834f7ee19b64829e"
+  },
+  "id": "jUMEwUKNAUollvBA",
+  "tags": []
+}
