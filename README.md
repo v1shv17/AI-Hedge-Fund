@@ -2,6 +2,8 @@
 
 An automated investment analysis system that simulates a committee of 5 world-class investors analyzing any stock ticker, then delivers a beautifully formatted HTML report straight to your inbox.
 
+<img width="2554" height="1278" alt="image" src="https://github.com/user-attachments/assets/f97ea0dd-0c8c-4f7d-af6c-34a1183464d5" />
+
 ---
 
 ## 🧠 How It Works
